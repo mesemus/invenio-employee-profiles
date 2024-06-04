@@ -9,37 +9,27 @@
 
 """Pytest configuration."""
 
+from invenio_app.factory import create_api
 import pytest
-from flask import Flask
 from flask_principal import AnonymousIdentity, Identity, Need, UserNeed
-from flask_security import login_user
 from flask_security.utils import hash_password
-from invenio_access import InvenioAccess
 from invenio_access.models import ActionRoles
 from invenio_access.permissions import any_user as any_user_need
 from invenio_access.permissions import system_identity
-from invenio_accounts import InvenioAccounts
 from invenio_accounts.models import Domain, DomainCategory, DomainOrg, Role, User
 from invenio_accounts.proxies import current_datastore
-from invenio_accounts.testutils import login_user_via_session
 from invenio_cache.proxies import current_cache
-from invenio_db import InvenioDB
-from invenio_i18n import InvenioI18N
-from invenio_search import InvenioSearch
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.schema import DropConstraint, DropSequence, DropTable
 
-from invenio_profiles import EmployeeProfileExtension
 from invenio_profiles.models import EmployeeProfile
 from marshmallow import fields
-from invenio_users_resources.ext import InvenioUsersResources
 from invenio_users_resources.permissions import user_management_action
 from invenio_users_resources.proxies import (
     current_domains_service,
     current_groups_service,
     current_users_service,
 )
-from invenio_users_resources.records import GroupAggregate
 from invenio_users_resources.services.schemas import (
     NotificationPreferences,
     UserPreferencesSchema,
@@ -68,27 +58,32 @@ def _compile_drop_sequence(element, compiler, **kwargs):
 def search(appctx):
     pass
 
-
 @pytest.fixture(scope="module")
-def create_app(instance_path):
-    """Application factory fixture for use with pytest-invenio."""
+def create_app(instance_path, entry_points):
+    """Application factory fixture."""
+    return create_api
 
-    def _create_app(**config):
-        app_ = Flask(
-            __name__,
-            instance_path=instance_path,
-        )
-        app_.config.update(config)
-        InvenioDB(app_)
-        InvenioAccounts(app_)
-        InvenioAccess(app_)
-        InvenioI18N(app_)
-        EmployeeProfileExtension(app_)
-        InvenioSearch(app_)
-        InvenioUsersResources(app_)
-        return app_
 
-    return _create_app
+#
+# Application
+#
+@pytest.fixture(scope="module")
+def app_config(app_config):
+    """Override pytest-invenio app_config fixture."""
+    app_config["RECORDS_REFRESOLVER_CLS"] = (
+        "invenio_records.resolver.InvenioRefResolver"
+    )
+    app_config["RECORDS_REFRESOLVER_STORE"] = (
+        "invenio_jsonschemas.proxies.current_refresolver_store"
+    )
+    # Variable not used. We set it to silent warnings
+    app_config["JSONSCHEMAS_HOST"] = "not-used"
+    # setting preferences schema to test notifications
+    app_config["ACCOUNTS_USER_PREFERENCES_SCHEMA"] = UserPreferencesNotificationsSchema
+
+    app_config["USERS_RESOURCES_GROUPS_ENABLED"] = True
+
+    return app_config
 
 
 @pytest.fixture(scope="module")
@@ -217,27 +212,6 @@ class UserPreferencesNotificationsSchema(UserPreferencesSchema):
 
     notifications = fields.Nested(NotificationPreferences)
 
-
-#
-# Application
-#
-@pytest.fixture(scope="module")
-def app_config(app_config):
-    """Override pytest-invenio app_config fixture."""
-    app_config["RECORDS_REFRESOLVER_CLS"] = (
-        "invenio_records.resolver.InvenioRefResolver"
-    )
-    app_config["RECORDS_REFRESOLVER_STORE"] = (
-        "invenio_jsonschemas.proxies.current_refresolver_store"
-    )
-    # Variable not used. We set it to silent warnings
-    app_config["JSONSCHEMAS_HOST"] = "not-used"
-    # setting preferences schema to test notifications
-    app_config["ACCOUNTS_USER_PREFERENCES_SCHEMA"] = UserPreferencesNotificationsSchema
-
-    app_config["USERS_RESOURCES_GROUPS_ENABLED"] = True
-
-    return app_config
 
 
 @pytest.fixture()
