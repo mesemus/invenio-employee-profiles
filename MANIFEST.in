@@ -22,6 +22,6 @@ prune docs/_build
 recursive-include docs *.bat *.py *.rst Makefile
 recursive-include .github/workflows *.yml
 recursive-include examples *.html *.py *.sh
-recursive-include invenio_profiles *.html *.mo *.po *.pot *.xml *.py
+recursive-include invenio_employee_profiles *.html *.mo *.po *.pot *.xml *.py
 recursive-include tests *.xml *.py
 include .git-blame-ignore-revs
